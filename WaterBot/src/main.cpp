@@ -1,9 +1,11 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include "WiFiManager.h"
 #include <Firebase_ESP_Client.h>
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
 #include "time.h"
+#include "DHT.h"
 
 #define WIFI_SSID "Sumit"
 #define WIFI_PASSWORD "sumit625"
@@ -16,6 +18,13 @@
 
 #define TIMEDELAY 5000
 
+// dht sensor
+#define DHTPIN 4
+#define DHTTYPE DHT11
+
+// DHT
+DHT dht(DHTPIN, DHTTYPE);
+
 // Define Firebase Data object
 FirebaseData fbdo;
 FirebaseAuth auth;
@@ -26,7 +35,8 @@ String databasePath;
 // Database child nodes
 String tempPath = "/temp";
 String humPath = "/humid";
-String ph = "/ph";
+String tdsPath = "/tds";
+String turbidityPath = "/turbidity";
 
 // Parent Node (to be updated in every loop)
 String parentPath;
@@ -38,35 +48,37 @@ FirebaseJson json;
 
 unsigned long sendDataPrevMillis = 0;
 
+void configModeCallback (WiFiManager *myWiFiManager) {
+  Serial.println("Entered config mode");
+  Serial.println(WiFi.softAPIP());
+  //if you used auto generated SSID, print it
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+}
+
 // Initialize WiFi
 void initWiFi()
 {
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("Connecting to WiFi ..");
-  // endless loop untils connects
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    Serial.print('.');
+  WiFiManager wifiManager;
+  wifiManager.resetSettings();
+  wifiManager.setAPCallback(configModeCallback);
+
+  if(!wifiManager.autoConnect()) {
+    Serial.println("failed to connect and hit timeout");
+    //reset and try again, or maybe put it to deep sleep
+    ESP.restart();
     delay(1000);
-  }
-  // after connecting successfully
-  Serial.println("Connected Successfully :)");
-  Serial.println();
+  } 
+
+  //if you get here you have connected to the WiFi
+  Serial.println("connected...)");
 }
 
-double getPh()
-{
+float getTds(){
   return 5.6;
 }
 
-double getTemp()
-{
-  return 25.6;
-}
-
-double getHumid()
-{
-  return 85.6;
+float getTurbidity(){
+  return 23.5;
 }
 
 // Function that gets current epoch time
@@ -92,6 +104,9 @@ void setup()
   auth.user.email = USER_EMAIL;
   auth.user.password = USER_PASSWORD;
   config.database_url = DATABASE_URL;
+
+  // dht begin
+  dht.begin();
 
   Firebase.reconnectWiFi(true);
   fbdo.setResponseSize(4096);
@@ -130,12 +145,18 @@ void loop()
     timestamp = getTime();
     Serial.print ("time: ");
     Serial.println (timestamp);
+
+    float h = dht.readHumidity();
+    float t = dht.readTemperature();
+    float tds = getTds();
+    float turbidity = getTurbidity();
     
     parentPath= databasePath + "/" + String(timestamp);
 
-    json.set(tempPath.c_str(), String(getTemp()));
-    json.set(humPath.c_str(), String(getHumid()));
-    json.set(ph.c_str(), String(getPh()));
+    json.set(tempPath.c_str(), String(t));
+    json.set(humPath.c_str(), String(h));
+    json.set(tdsPath.c_str(), String(tds));
+    json.set(turbidityPath.c_str(), String(turbidity));
 
     Serial.printf("Set json... %s\n", Firebase.RTDB.setJSON(&fbdo, parentPath.c_str(), &json) ? "ok" : fbdo.errorReason().c_str());
   }
