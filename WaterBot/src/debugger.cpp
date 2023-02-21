@@ -2,6 +2,15 @@
 
 #define debugLED 2
 
+void setupNotifier(){
+  for (int i = 0; i < 5; i++){
+    digitalWrite(debugLED, HIGH);
+    delay(100);
+    digitalWrite(debugLED, LOW);
+    delay(100);
+  }
+}
+
 void connectionSuccessful(){
   for (int i = 0; i < 3; i++){
     digitalWrite(debugLED, HIGH);
@@ -21,19 +30,15 @@ void disConnected(){
 }
 
 void received(){
-  for (int i = 0; i < 3; i++){
-    digitalWrite(debugLED, HIGH);
-    delay(50);
-    digitalWrite(debugLED, LOW);
-    delay(50);
-  }
+  digitalWrite(debugLED, HIGH);
+  delay(50);
+  digitalWrite(debugLED, LOW);
+  delay(50);
 }
 
 void sent(){
-  for (int i = 0; i < 3; i++){
-    digitalWrite(debugLED, HIGH);
-    delay(50);
-    digitalWrite(debugLED, LOW);
-    delay(50);
-  }
+  digitalWrite(debugLED, HIGH);
+  delay(50);
+  digitalWrite(debugLED, LOW);
+  delay(50);
 }

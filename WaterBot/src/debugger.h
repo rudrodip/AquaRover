@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+void setupNotifier();
 void connectionSuccessful();
 void disConnected();
 void received();
