@@ -3,12 +3,12 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include "debugger.h"
-#include <SparkFun_TB6612.h>
 #include "ServoEasing.hpp"
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <DHT_U.h>
 #include <ArduinoJson.h>
+#include "handle_command.h"
 
 // BLE SECTION
 BLEServer *pServer = NULL;
@@ -18,6 +18,7 @@ BLECharacteristic *box_characteristic = NULL;
 
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
+bool debugMode = false;
 
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define MESSAGE_CHARACTERISTIC_UUID "6d68efe5-04b6-4a85-abc4-c2670b7bf7fd"
@@ -27,24 +28,10 @@ bool oldDeviceConnected = false;
 #define DHTTYPE DHT11
 DHT_Unified dht(DHTPIN, DHTTYPE);
 
-// motor driver pins
-#define AIN1 25
-#define BIN1 27
-
-#define AIN2 33
-#define BIN2 14
-#define PWMA 32
-#define PWMB 13
-#define STBY 26
-
-// motor speed
-#define turningSpeed 200
-
 // tds
-#define tdsPin 23
-
-Motor motor1 = Motor(AIN1, AIN2, PWMA, 1, STBY);
-Motor motor2 = Motor(BIN1, BIN2, PWMB, 1, STBY);
+#define tdsPin 4
+// turbidity
+#define turbidityPin 34
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -69,8 +56,15 @@ class CharacteristicsCallbacks : public BLECharacteristicCallbacks
   void onWrite(BLECharacteristic *pCharacteristic)
   {
     String message = pCharacteristic->getValue().c_str();
-    Serial.println(message);
+    handle_command(message);
+    if (debugMode) Serial.println(message);
     received();
+    if (message == "debug"){
+      debugMode = true;
+    }
+    if (message == "!debug"){
+      debugMode = false;
+    }
   }
 };
 
@@ -94,8 +88,9 @@ void checkToReconnect() // added
 }
 
 DynamicJsonDocument doc(1024);
-// tds value
-int tds = 0;
+double tds;
+double turbidity;
+
 void setup()
 {
   Serial.begin(115200);
@@ -146,6 +141,7 @@ void loop()
 
   sensors_event_t event;
   tds = analogRead(tdsPin);
+  turbidity = analogRead(turbidityPin);
 
   // temperature
   dht.temperature().getEvent(&event);
@@ -155,7 +151,8 @@ void loop()
   }
   else
   {
-    Serial.println(event.temperature);
+    // Serial.print("Temp: ");
+    // Serial.println(event.temperature);
     doc["temperature"] = event.temperature;
   }
 
@@ -167,16 +164,20 @@ void loop()
   }
   else
   {
-    Serial.println(event.relative_humidity);
+    // Serial.print("Humid: ");
+    // Serial.println(event.relative_humidity);
     doc["humidity"] = event.relative_humidity;
   }
 
-  Serial.println(tds);
+  // Serial.print("TDS: ");
+  // Serial.println(tds);
   doc["tds"] = tds;
+  doc["turbidity"] = turbidity;
 
   // Convert the JSON to a string
   String jsonString;
   serializeJson(doc, jsonString);
+  if (debugMode) Serial.println(jsonString);
 
   if (deviceConnected)
   {
