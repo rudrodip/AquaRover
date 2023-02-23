@@ -14,4 +14,8 @@ void handle_command(String cmd)
     double angle = angleString.toDouble();
     drive(dis, angle);
   }
+  if (start == 's'){
+    int angle = cmd.substring(cmd.indexOf(':') + 2).toInt();
+    manageServo(angle);
+  }
 }

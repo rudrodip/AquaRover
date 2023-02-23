@@ -31,14 +31,14 @@ void disConnected(){
 
 void received(){
   digitalWrite(debugLED, HIGH);
-  delay(50);
+  delay(25);
   digitalWrite(debugLED, LOW);
-  delay(50);
+  delay(25);
 }
 
 void sent(){
   digitalWrite(debugLED, HIGH);
-  delay(50);
+  delay(25);
   digitalWrite(debugLED, LOW);
-  delay(50);
+  delay(25);
 }

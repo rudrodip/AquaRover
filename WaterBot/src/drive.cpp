@@ -1,4 +1,5 @@
 #include "drive.h"
+#include "ServoEasing.hpp"
 
 // motor driver pins
 #define AIN1 25
@@ -6,35 +7,40 @@
 
 #define AIN2 33
 #define BIN2 14
+
 #define PWMA 32
 #define PWMB 13
 #define STBY 26
 
+// servo pins
+#define directionServo 23
+int directionServoAngle = 90;
+ServoEasing DirectionServoMotor;
+
 #define pi 3.1415926
 
-const double maxDistance = 1.0;
-const double maxAngle = 360.0;
 const int maxPWM = 255;
 
-Motor leftMotor = Motor(AIN1, AIN2, PWMA, 1, STBY);
-Motor rightMotor = Motor(BIN1, BIN2, PWMB, 1, STBY);
+Motor thruster = Motor(AIN1, AIN2, PWMA, 1, STBY);
+
+void manageServo(int angle){
+  DirectionServoMotor.startEaseTo(angle, 100);
+}
+
+void setupServo(){
+  DirectionServoMotor.attach(directionServo, directionServoAngle);
+}
 
 void drive(double dis, double angle){
-   // Convert the angle to radians
-  double radians = angle * (pi / 180);
-
-  // Calculate the PWM values for each motor based on the distance and angle
   double delta;
-  int leftMotorPWM, rightMotorPWM;
+  int thrusterPWM = int(dis * maxPWM);
 
-  delta = dis * maxPWM * cos(radians);
+  if (angle < 0) thrusterPWM = thrusterPWM * (-1);
 
-  if (angle <= 90 && angle >= -90){
-    rightMotorPWM = maxPWM - delta;
-  } else {
-    leftMotorPWM = maxPWM + delta;
+  int absoluteAngle = int(angle) % 360;  // take modulo 360 to get absolute angle
+  if (absoluteAngle < 0) {
+    absoluteAngle += 360;  // if negative, add 360 to get positive absolute angle
   }
-
-  leftMotor.drive(leftMotorPWM);
-  rightMotor.drive(rightMotorPWM);
+  
+  thruster.drive(thrusterPWM);
 }

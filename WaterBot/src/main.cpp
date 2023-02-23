@@ -3,10 +3,6 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include "debugger.h"
-#include "ServoEasing.hpp"
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
-#include <DHT_U.h>
 #include <ArduinoJson.h>
 #include "handle_command.h"
 
@@ -23,15 +19,11 @@ bool debugMode = false;
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define MESSAGE_CHARACTERISTIC_UUID "6d68efe5-04b6-4a85-abc4-c2670b7bf7fd"
 
-// dht11 pin
-#define DHTPIN 15
-#define DHTTYPE DHT11
-DHT_Unified dht(DHTPIN, DHTTYPE);
 
-// tds
-#define tdsPin 4
-// turbidity
-#define turbidityPin 34
+// esp32 to arduino serial communication pin
+#define rx 16
+#define tx 17
+
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -39,14 +31,14 @@ class MyServerCallbacks : public BLEServerCallbacks
   {
     Serial.println("Connected");
     deviceConnected = true;
-    connectionSuccessful();
+    if(debugMode) connectionSuccessful();
   };
 
   void onDisconnect(BLEServer *pServer)
   {
     Serial.println("Disconnected");
     deviceConnected = false;
-    disConnected();
+    if(debugMode) disConnected();
   }
 };
 
@@ -58,7 +50,7 @@ class CharacteristicsCallbacks : public BLECharacteristicCallbacks
     String message = pCharacteristic->getValue().c_str();
     handle_command(message);
     if (debugMode) Serial.println(message);
-    received();
+    if(debugMode) received();
     if (message == "debug"){
       debugMode = true;
     }
@@ -87,19 +79,51 @@ void checkToReconnect() // added
   }
 }
 
-DynamicJsonDocument doc(1024);
-double tds;
-double turbidity;
+const byte numChars = 32;
+char receivedChars[numChars]; // an array to store the received data
+boolean newData = false;
+
+void recvWithEndMarker()
+{
+  static byte ndx = 0;
+  char endMarker = '\n';
+  char rc;
+
+  while (Serial2.available() > 0 && newData == false)
+  {
+    rc = Serial2.read();
+
+    if (rc != endMarker)
+    {
+      receivedChars[ndx] = rc;
+      ndx++;
+      if (ndx >= numChars)
+      {
+        ndx = numChars - 1;
+      }
+    }
+    else
+    {
+      receivedChars[ndx] = '\0'; // terminate the string
+      ndx = 0;
+      newData = true;
+    }
+  }
+}
+
+void sendNewData()
+{
+  if (newData == true)
+  {
+    Serial.println(receivedChars);
+    newData = false;
+  }
+}
 
 void setup()
 {
   Serial.begin(115200);
-
-  // Initialize device.
-  dht.begin();
-  Serial.println(F("DHTxx Unified Sensor Example"));
-  // Print temperature sensor details.
-  sensor_t sensor;
+  Serial2.begin(9600, SERIAL_8N1, rx, tx);
 
   // pinMode
   pinMode(2, OUTPUT);
@@ -130,6 +154,7 @@ void setup()
   message_characteristic->setValue("Connection Established");
   message_characteristic->setCallbacks(new CharacteristicsCallbacks());
 
+  setupServo();
   Serial.println("Initiated connection successfully :)");
   setupNotifier();
 }
@@ -137,52 +162,15 @@ void setup()
 void loop()
 {
   checkToReconnect();
-  doc.clear();
-
-  sensors_event_t event;
-  tds = analogRead(tdsPin);
-  turbidity = analogRead(turbidityPin);
-
-  // temperature
-  dht.temperature().getEvent(&event);
-  if (isnan(event.temperature))
-  {
-    Serial.println(F("Error reading temperature!"));
-  }
-  else
-  {
-    // Serial.print("Temp: ");
-    // Serial.println(event.temperature);
-    doc["temperature"] = event.temperature;
-  }
-
-  // humidity
-  dht.humidity().getEvent(&event);
-  if (isnan(event.relative_humidity))
-  {
-    Serial.println(F("Error reading humidity!"));
-  }
-  else
-  {
-    // Serial.print("Humid: ");
-    // Serial.println(event.relative_humidity);
-    doc["humidity"] = event.relative_humidity;
-  }
-
-  // Serial.print("TDS: ");
-  // Serial.println(tds);
-  doc["tds"] = tds;
-  doc["turbidity"] = turbidity;
-
-  // Convert the JSON to a string
-  String jsonString;
-  serializeJson(doc, jsonString);
-  if (debugMode) Serial.println(jsonString);
+  recvWithEndMarker();
+  sendNewData();
+  
+  if (debugMode) Serial.println(receivedChars);
 
   if (deviceConnected)
   {
     message_characteristic->notify(); // its to receive message
-    message_characteristic->setValue(jsonString.c_str());
+    message_characteristic->setValue(receivedChars);
   }
 
   delay(100);
