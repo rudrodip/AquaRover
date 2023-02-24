@@ -14,7 +14,7 @@ BLECharacteristic *box_characteristic = NULL;
 
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-bool debugMode = false;
+bool debugMode = true;
 
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define MESSAGE_CHARACTERISTIC_UUID "6d68efe5-04b6-4a85-abc4-c2670b7bf7fd"
@@ -79,47 +79,6 @@ void checkToReconnect() // added
   }
 }
 
-const byte numChars = 64;
-char receivedChars[numChars]; // an array to store the received data
-boolean newData = false;
-
-void recvWithEndMarker()
-{
-  static byte ndx = 0;
-  char endMarker = '\n';
-  char rc;
-
-  while (Serial2.available() > 0 && newData == false)
-  {
-    rc = Serial2.read();
-
-    if (rc != endMarker)
-    {
-      receivedChars[ndx] = rc;
-      ndx++;
-      if (ndx >= numChars)
-      {
-        ndx = numChars - 1;
-      }
-    }
-    else
-    {
-      receivedChars[ndx] = '\0'; // terminate the string
-      ndx = 0;
-      newData = true;
-    }
-  }
-}
-
-void sendNewData()
-{
-  if (newData == true)
-  {
-    if (debugMode) Serial.println(receivedChars);
-    if (deviceConnected) message_characteristic->setValue(receivedChars);
-    newData = false;
-  }
-}
 
 void setup()
 {
@@ -160,16 +119,54 @@ void setup()
   setupNotifier();
 }
 
+const byte numChars = 32;
+char receivedChars[numChars]; // an array to store the received data
+boolean newData = false;
+
+void recvWithEndMarker()
+{
+  static byte ndx = 0;
+  char endMarker = '\n';
+  char rc;
+
+  while (Serial2.available() > 0 && newData == false)
+  {
+    rc = Serial2.read();
+
+    if (rc != endMarker)
+    {
+      receivedChars[ndx] = rc;
+      ndx++;
+      if (ndx >= numChars)
+      {
+        ndx = numChars - 1;
+      }
+    }
+    else
+    {
+      receivedChars[ndx] = '\0'; // terminate the string
+      ndx = 0;
+      newData = true;
+    }
+  }
+}
+
+void sendNewData()
+{
+  if (newData == true)
+  {
+    Serial.println(receivedChars);
+    newData = false;
+  }
+}
+
 void loop()
 {
-  checkToReconnect();
   recvWithEndMarker();
   sendNewData();
-  
-  if (deviceConnected)
-  { 
-    message_characteristic->notify(); // its to receive message
-  }
+
+  message_characteristic->notify(); // its to receive message
+  message_characteristic->setValue(receivedChars);
 
   delay(100);
 }
