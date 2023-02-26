@@ -19,11 +19,10 @@ bool debugMode = false;
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define MESSAGE_CHARACTERISTIC_UUID "6d68efe5-04b6-4a85-abc4-c2670b7bf7fd"
 
-
 // esp32 to arduino serial communication pin
 #define rx 16
 #define tx 17
-
+DynamicJsonDocument doc(1024);
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -31,14 +30,16 @@ class MyServerCallbacks : public BLEServerCallbacks
   {
     Serial.println("Connected");
     deviceConnected = true;
-    if(debugMode) connectionSuccessful();
+    if (debugMode)
+      connectionSuccessful();
   };
 
   void onDisconnect(BLEServer *pServer)
   {
     Serial.println("Disconnected");
     deviceConnected = false;
-    if(debugMode) disConnected();
+    if (debugMode)
+      disConnected();
   }
 };
 
@@ -49,12 +50,16 @@ class CharacteristicsCallbacks : public BLECharacteristicCallbacks
   {
     String message = pCharacteristic->getValue().c_str();
     handle_command(message);
-    if (debugMode) Serial.println(message);
-    if(debugMode) received();
-    if (message == "debug"){
+    if (debugMode)
+      Serial.println(message);
+    if (debugMode)
+      received();
+    if (message == "debug")
+    {
       debugMode = true;
     }
-    if (message == "!debug"){
+    if (message == "!debug")
+    {
       debugMode = false;
     }
   }
@@ -115,8 +120,10 @@ void sendNewData()
 {
   if (newData == true)
   {
-    if (debugMode) Serial.println(receivedChars);
-    if (deviceConnected) message_characteristic->setValue(receivedChars);
+    if (debugMode)
+      Serial.println(receivedChars);
+    if (deviceConnected)
+      message_characteristic->setValue(receivedChars);
     newData = false;
   }
 }
@@ -165,9 +172,9 @@ void loop()
   checkToReconnect();
   recvWithEndMarker();
   sendNewData();
-  
+
   if (deviceConnected)
-  { 
+  {
     message_characteristic->notify(); // its to receive message
   }
 

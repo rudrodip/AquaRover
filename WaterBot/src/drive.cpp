@@ -15,7 +15,7 @@
 // servo pins
 #define directionServo 23
 int directionServoAngle = 90;
-ServoEasing DirectionServoMotor;
+Servo DirectionServoMotor;
 
 #define pi 3.1415926
 
@@ -24,23 +24,17 @@ const int maxPWM = 255;
 Motor thruster = Motor(AIN1, AIN2, PWMA, 1, STBY);
 
 void manageServo(int angle){
-  DirectionServoMotor.startEaseTo(angle, 100);
+  DirectionServoMotor.write(angle);
 }
 
 void setupServo(){
-  DirectionServoMotor.attach(directionServo, directionServoAngle);
+  DirectionServoMotor.attach(directionServo);
 }
 
 void drive(double dis, double angle){
   double delta;
   int thrusterPWM = int(dis * maxPWM);
-
-  if (angle < 0) thrusterPWM = thrusterPWM * (-1);
-
-  int absoluteAngle = int(angle) % 360;  // take modulo 360 to get absolute angle
-  if (absoluteAngle < 0) {
-    absoluteAngle += 360;  // if negative, add 360 to get positive absolute angle
-  }
   
+  DirectionServoMotor.write(int(angle));
   thruster.drive(thrusterPWM);
 }
